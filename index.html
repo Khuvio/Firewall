@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kali Firewall Manager</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d1117; color: #c9d1d9; font-family: 'Courier New', monospace; }
+.topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.title { font-size: 13px; color: #8b949e; margin-left: 8px; letter-spacing: 1.5px; }
+.master { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.toggle { width: 32px; height: 18px; border-radius: 9px; background: #21262d; position: relative; cursor: pointer; transition: background .2s; }
+.toggle.on { background: #1a4f2a; }
+.toggle::after { content: ''; position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #484f58; top: 2.5px; left: 2.5px; transition: all .2s; }
+.toggle.on::after { background: #3fb950; left: 17px; }
+.badge { font-size: 10px; padding: 3px 10px; border-radius: 20px; border: 1px solid; letter-spacing: 1px; }
+.badge.on { background: #0d2818; color: #3fb950; border-color: #3fb950; }
+.badge.off { background: #2d1515; color: #f85149; border-color: #f85149; }
+.layout { display: grid; grid-template-columns: 180px 1fr; min-height: calc(100vh - 45px); }
+.sidebar { background: #0d1117; border-right: 1px solid #21262d; padding: 10px 0; }
+.sec { font-size: 9px; color: #484f58; padding: 12px 14px 4px; letter-spacing: 2px; text-transform: uppercase; }
+.nav { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12px; color: #8b949e; cursor: pointer; border-left: 2px solid transparent; transition: all .15s; }
+.nav:hover { background: #161b22; color: #c9d1d9; }
+.nav.active { color: #58a6ff; border-left-color: #58a6ff; background: #131d2f; }
+.main { padding: 16px; overflow-y: auto; }
+.stitle { font-size: 9px; color: #484f58; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.sc { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 12px; }
+.sl { font-size: 9px; color: #484f58; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.sv { font-size: 20px; font-weight: bold; }
+.sv.blue { color: #58a6ff; } .sv.green { color: #3fb950; } .sv.red { color: #f85149; } .sv.amber { color: #e3b341; }
+.form-area { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
+.fi { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 8px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 12px; width: 100%; }
+.fi:focus { outline: none; border-color: #58a6ff; }
+.btn { background: #1a4f2a; border: 1px solid #3fb950; color: #3fb950; padding: 6px 14px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 12px; cursor: pointer; }
+.btn:hover { background: #205c30; }
+.btn.red { background: #2d1515; border-color: #f85149; color: #f85149; }
+.btn.red:hover { background: #3d1f1f; }
+.rtable { background: #161b22; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+.rhead { display: grid; grid-template-columns: 40px 90px 120px 65px 65px 80px 1fr 90px; padding: 8px 12px; background: #21262d; font-size: 9px; color: #484f58; text-transform: uppercase; letter-spacing: 1px; gap: 6px; }
+.rrow { display: grid; grid-template-columns: 40px 90px 120px 65px 65px 80px 1fr 90px; padding: 8px 12px; border-top: 1px solid #0d1117; font-size: 11px; align-items: center; gap: 6px; transition: background .1s; }
+.rrow:hover { background: #1c2128; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: bold; }
+.p-allow { background: #0d2818; color: #3fb950; }
+.p-deny { background: #2d1515; color: #f85149; }
+.p-drop { background: #2a1f05; color: #e3b341; }
+.p-in { background: #131d2f; color: #58a6ff; }
+.p-out { background: #1e1529; color: #bc8cff; }
+.tw { display: flex; align-items: center; gap: 6px; }
+.del { color: #484f58; cursor: pointer; font-size: 18px; line-height: 1; }
+.del:hover { color: #f85149; }
+.add-btn { width: 100%; padding: 8px; background: transparent; border: 1px dashed #30363d; color: #484f58; border-radius: 6px; font-size: 11px; cursor: pointer; font-family: 'Courier New', monospace; letter-spacing: 1px; }
+.add-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.log { background: #0a0e14; border: 1px solid #21262d; border-radius: 8px; padding: 12px; font-size: 11px; height: 200px; overflow-y: auto; }
+.ll { padding: 2px 0; color: #8b949e; line-height: 1.6; }
+.ts { color: #484f58; } .acc { color: #3fb950; } .drp { color: #f85149; }
+.ip { color: #58a6ff; } .pt { color: #e3b341; }
+.alert { padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 14px; display: none; }
+.alert.success { background: #0d2818; border: 1px solid #3fb950; color: #3fb950; }
+.alert.error { background: #2d1515; border: 1px solid #f85149; color: #f85149; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="dot" style="background:#ff5f57"></div>
+  <div class="dot" style="background:#febc2e"></div>
+  <div class="dot" style="background:#28c840"></div>
+  <span class="title">KALI FIREWALL MANAGER — localhost:5000</span>
+  <div class="master">
+    <span style="font-size:11px;color:#8b949e">Firewall</span>
+    <div class="toggle on" id="mt" onclick="toggleMaster()"></div>
+    <span class="badge on" id="mb">ACTIVE</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sec">Menu</div>
+    <div class="nav active" onclick="showTab('rules',this)">&#9881; Rules</div>
+    <div class="nav" onclick="showTab('logs',this)">&#9776; Live Logs</div>
+    <div class="sec">System</div>
+    <div class="nav" style="cursor:default;color:#3fb950;font-size:10px">&#9679; Flask Running</div>
+    <div class="nav" style="cursor:default;color:#3fb950;font-size:10px">&#9679; iptables Ready</div>
+    <div class="sec">Quick Actions</div>
+    <div class="nav" onclick="flushRules()">&#10006; Flush All Rules</div>
+    <div class="nav" onclick="loadStatus()">&#8635; Refresh Status</div>
+  </div>
+
+  <div class="main">
+    <div id="alertbox" class="alert"></div>
+
+    <div id="tab-rules">
+      <div class="stitle">Live Status</div>
+      <div class="stats">
+        <div class="sc"><div class="sl">Policy</div><div class="sv amber" id="sv-policy">...</div></div>
+        <div class="sc"><div class="sl">Rules</div><div class="sv blue" id="sv-rules">...</div></div>
+        <div class="sc"><div class="sl">Firewall</div><div class="sv green" id="sv-fw">ON</div></div>
+        <div class="sc"><div class="sl">Port</div><div class="sv amber">5000</div></div>
+      </div>
+
+      <div class="stitle">Add New Rule</div>
+      <div class="form-area">
+        <select class="fi" id="nc"><option>INPUT</option><option>OUTPUT</option><option>FORWARD</option></select>
+        <input class="fi" id="ns" placeholder="Source IP (0.0.0.0/0)" />
+        <input class="fi" id="nd" placeholder="Port (22, 80, 443)" />
+        <select class="fi" id="na"><option>ACCEPT</option><option>DROP</option><option>REJECT</option></select>
+        <button class="btn" onclick="addRule()">+ Add</button>
+      </div>
+
+      <div class="stitle">Current iptables Rules</div>
+      <div class="rtable">
+        <div class="rhead">
+          <span>#</span><span>Chain</span><span>Source</span>
+          <span>Proto</span><span>Port</span><span>Action</span>
+          <span>Info</span><span>Remove</span>
+        </div>
+        <div id="rb"><div style="padding:16px;color:#484f58;font-size:11px">Loading rules...</div></div>
+      </div>
+      <button class="add-btn" onclick="addRule()">[ + INSERT NEW RULE ]</button>
+    </div>
+
+    <div id="tab-logs" style="display:none">
+      <div class="stitle">Live iptables Log</div>
+      <div class="log" id="logbox">
+        <div class="ll" style="color:#484f58">Waiting for traffic logs...</div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn" onclick="loadRules()">&#8635; Refresh</button>
+        <button class="btn red" onclick="clearLog()">Clear Logs</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var masterOn = true;
+
+function showAlert(msg, type) {
+  var a = document.getElementById('alertbox');
+  a.textContent = msg;
+  a.className = 'alert ' + type;
+  a.style.display = 'block';
+  setTimeout(function(){ a.style.display='none'; }, 3000);
+}
+
+function pill(a) {
+  if(a==='ACCEPT') return '<span class="pill p-allow">ACCEPT</span>';
+  if(a==='DROP')   return '<span class="pill p-deny">DROP</span>';
+  return '<span class="pill p-drop">REJECT</span>';
+}
+function cpill(c) {
+  if(c==='OUTPUT') return '<span class="pill p-out">OUTPUT</span>';
+  return '<span class="pill p-in">'+c+'</span>';
+}
+
+function renderRules(data) {
+  var h = '';
+  var count = 0;
+  ['INPUT','OUTPUT','FORWARD'].forEach(function(chain) {
+    var lines = data[chain].split('\n');
+    lines.forEach(function(line) {
+      if(!line.trim() || line.startsWith('Chain') || line.startsWith('pkts') || line.startsWith('target')) return;
+      var parts = line.trim().split(/\s+/);
+      if(parts.length < 4) return;
+      count++;
+      var action = parts[2] || 'ACCEPT';
+      var proto  = parts[3] || 'all';
+      var src    = parts[7] || '0.0.0.0/0';
+      var info   = parts.slice(10).join(' ') || '-';
+      h += '<div class="rrow">';
+      h += '<span style="color:#484f58">'+count+'</span>';
+      h += cpill(chain);
+      h += '<span style="color:#79c0ff;font-size:10px">'+src+'</span>';
+      h += '<span style="color:#8b949e">'+proto+'</span>';
+      h += '<span style="color:#e3b341">*</span>';
+      h += pill(action);
+      h += '<span style="color:#8b949e;font-size:10px">'+info+'</span>';
+      h += '<button class="btn red" style="font-size:10px;padding:3px 8px" onclick="deleteRule(\''+chain+'\','+count+')">Delete</button>';
+      h += '</div>';
+    });
+  });
+  document.getElementById('rb').innerHTML = h || '<div style="padding:16px;color:#484f58;font-size:11px">No rules found.</div>';
+  document.getElementById('sv-rules').textContent = count;
+}
+
+function loadRules() {
+  fetch('/api/rules')
+    .then(function(r){ return r.json(); })
+    .then(function(data){ renderRules(data); })
+    .catch(function(){ showAlert('Cannot connect to Flask backend!', 'error'); });
+}
+
+function loadStatus() {
+  fetch('/api/status')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      document.getElementById('sv-policy').textContent = data.policy;
+      document.getElementById('sv-rules').textContent  = data.rule_count;
+    })
+    .catch(function(){ showAlert('Cannot connect to backend!', 'error'); });
+}
+
+function addRule() {
+  var chain  = document.getElementById('nc').value;
+  var src    = document.getElementById('ns').value || '0.0.0.0/0';
+  var port   = document.getElementById('nd').value || '*';
+  var action = document.getElementById('na').value;
+  fetch('/api/rules', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({chain:chain, src:src, port:port, action:action, proto:'tcp'})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.status === 'ok') {
+      showAlert('Rule added: ' + data.command, 'success');
+      document.getElementById('ns').value = '';
+      document.getElementById('nd').value = '';
+      loadRules();
+      loadStatus();
+    } else {
+      showAlert('Error: ' + data.message, 'error');
+    }
+  });
+}
+
+function deleteRule(chain, num) {
+  fetch('/api/rules/' + chain + '/' + num, {method:'DELETE'})
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.status === 'ok') {
+      showAlert('Rule deleted!', 'success');
+      loadRules();
+      loadStatus();
+    } else {
+      showAlert('Error: ' + data.message, 'error');
+    }
+  });
+}
+
+function toggleMaster() {
+  masterOn = !masterOn;
+  var endpoint = masterOn ? '/api/enable' : '/api/disable';
+  fetch(endpoint, {method:'POST'})
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var t = document.getElementById('mt');
+    var b = document.getElementById('mb');
+    var s = document.getElementById('sv-fw');
+    if(masterOn){
+      t.classList.add('on');
+      b.textContent='ACTIVE'; b.className='badge on';
+      s.textContent='ON'; s.className='sv green';
+      showAlert('Firewall ENABLED!', 'success');
+    } else {
+      t.classList.remove('on');
+      b.textContent='INACTIVE'; b.className='badge off';
+      s.textContent='OFF'; s.className='sv red';
+      showAlert('Firewall DISABLED!', 'error');
+    }
+    loadStatus();
+  });
+}
+
+function flushRules() {
+  if(!confirm('Flush ALL firewall rules? This removes all protection!')) return;
+  fetch('/api/flush', {method:'POST'})
+  .then(function(r){ return r.json(); })
+  .then(function(){
+    showAlert('All rules flushed!', 'error');
+    loadRules();
+    loadStatus();
+  });
+}
+
+function showTab(t, el) {
+  document.querySelectorAll('.nav').forEach(function(n){ n.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById('tab-rules').style.display = t==='rules' ? 'block' : 'none';
+  document.getElementById('tab-logs').style.display  = t==='logs'  ? 'block' : 'none';
+}
+
+function clearLog() { document.getElementById('logbox').innerHTML = ''; }
+
+loadRules();
+loadStatus();
+setInterval(loadStatus, 5000);
+</script>
+</body>
+</html>
